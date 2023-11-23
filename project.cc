@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
   double distance = 300.0;
   bool useCa = true;
 
-  // Command line arguments
+  // TODO: Add way more variables used in simulation for cmd args
   CommandLine cmd;
   cmd.AddValue("simTime", "Total duration of the simulation [s])", simTime);
   cmd.AddValue("distance", "Distance between eNBs [m]", distance);
@@ -46,12 +46,10 @@ int main(int argc, char *argv[]) {
       Config::SetDefault("ns3::LteHelper::NumberOfComponentCarriers", UintegerValue(2));
       Config::SetDefault("ns3::LteHelper::EnbComponentCarrierManager", StringValue("ns3::RrComponentCarrierManager"));
   }
-
   ConfigStore inputConfig;
   inputConfig.ConfigureDefaults();
-
-  // parse again so you can override default values from the command line
   cmd.Parse(argc, argv);
+
 
   Ptr<LteHelper> lteHelper = CreateObject<LteHelper> (); // create LteHelper object
   Ptr<PointToPointEpcHelper>  epcHelper = CreateObject<PointToPointEpcHelper> (); // PointToPointEpcHelper
@@ -60,6 +58,7 @@ int main(int argc, char *argv[]) {
 
   lteHelper->SetEnbDeviceAttribute("DlBandwidth", UintegerValue(100));
   lteHelper->SetEnbDeviceAttribute("UlBandwidth", UintegerValue(100));
+
 
   Ptr<Node> pgw = epcHelper->GetPgwNode(); // get the PGW node (potreba k mobility pozdeji a pro p2ph)
   Ptr<Node> sgw = epcHelper->GetSgwNode(); 
@@ -157,10 +156,12 @@ int main(int argc, char *argv[]) {
       }
     }
 
+  // First set UEs to specific lication with constant position
   mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   mobility.SetPositionAllocator(positionAllocUe);
   mobility.Install(ueNodes);
 
+  // Then make UEs move (change mobility to random walk)?
   // TODO: FIX THIS SHIET, DOENST MOVE AT ALL IDK WHY
   mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel", 
                               "Bounds",
@@ -195,7 +196,6 @@ int main(int argc, char *argv[]) {
   }
   
 
-
   // Install the IP stack on the UEs
   internet.Install (ueNodes);
   // Assign IP address to UEs
@@ -212,8 +212,8 @@ int main(int argc, char *argv[]) {
   // Attach UEs to eNodeBs
   lteHelper->Attach(ueLteDevs);
 
-  // ---------- IMPLEMENT STREAMING FLOW ----------
 
+  // ---------- IMPLEMENT STREAMING FLOW ----------
   // Define the port for video streaming
   uint16_t videoPort = 9;
 
@@ -237,7 +237,6 @@ int main(int argc, char *argv[]) {
 
 
   // ---------- IMPLEMENT FTP FLOW ----------
-  // Choose two random UE nodes for FTP file exchange
   uint32_t ueIdServer = 4; // Choose the UE that will act as the FTP server
   uint32_t ueIdClient = 7; // Choose the UE that will act as the FTP client
 
