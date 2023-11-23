@@ -28,8 +28,8 @@ int main(int argc, char *argv[]) {
 
   uint16_t numberOfUes = 15;
   uint16_t numberOf_eNodeBs = 3;
-  double simTime = 10.0;
-  double interval = 50.0; // ms
+  double simTime = 20.0;
+  double interval = 20.0; // ms
   double distance = 300.0;
   bool useCa = true;
 
@@ -93,6 +93,7 @@ int main(int argc, char *argv[]) {
   Ipv4InterfaceContainer internetIpIfaces = ipv4h.Assign (internetDevices); // assign IPs to each p2p device
   Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress (1);
 
+  // TODO: Is this ok?
   Ipv4StaticRoutingHelper ipv4RoutingHelper;
   Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteHost->GetObject<Ipv4> ());
   remoteHostStaticRouting->AddNetworkRouteTo (Ipv4Address ("7.0.0.0"), Ipv4Mask ("255.0.0.0"), 1);
@@ -171,25 +172,28 @@ int main(int argc, char *argv[]) {
   NetDeviceContainer enbLteDevs = lteHelper->InstallEnbDevice (enbNodes); // add eNB nodes to the container
   NetDeviceContainer ueLteDevs = lteHelper->InstallUeDevice (ueNodes); // add UE nodes to the container
 
-  
-  Ptr<NetDevice> enbNetDev = enbLteDevs.Get(0);
-  Ptr<LteEnbNetDevice> enbLteNetDev = DynamicCast<LteEnbNetDevice>(enbNetDev);
-  uint32_t dlEarfcn = enbLteNetDev->GetDlEarfcn();
-  uint32_t ulEarfcn = enbLteNetDev->GetUlEarfcn();
-  uint16_t dl_bwd = enbLteNetDev->GetDlBandwidth();
-  uint16_t ul_bwd = enbLteNetDev->GetUlBandwidth();
-  std::cout << "Downlink BW: " << dl_bwd << std::endl;
-  std::cout << "Uplink BW: " << ul_bwd << std::endl;
-  std::cout << "Downlink Earfcn: " << dlEarfcn << std::endl;
-  std::cout << "Uplink Earfcn: " << ulEarfcn << std::endl;
+  // SHOW STATS OF eNodeB's
+  for(uint16_t i = 0; i < numberOf_eNodeBs; i++){
+    Ptr<NetDevice> enbNetDev = enbLteDevs.Get(i);
+    Ptr<LteEnbNetDevice> enbLteNetDev = DynamicCast<LteEnbNetDevice>(enbNetDev);
+    uint32_t dlEarfcn = enbLteNetDev->GetDlEarfcn();
+    uint32_t ulEarfcn = enbLteNetDev->GetUlEarfcn();
+    uint16_t dl_bwd = enbLteNetDev->GetDlBandwidth();
+    uint16_t ul_bwd = enbLteNetDev->GetUlBandwidth();
+    std::cout << "eNode " << i << " Stats:" << std::endl;
+    std::cout << "Downlink BW: " << dl_bwd << std::endl;
+    std::cout << "Uplink BW: " << ul_bwd << std::endl;
+    std::cout << "Downlink Earfcn: " << dlEarfcn << std::endl;
+    std::cout << "Uplink Earfcn: " << ulEarfcn << std::endl;
 
+    Ptr<NetDevice> ueNetDev = ueLteDevs.Get(i);
+    Ptr<LteUeNetDevice> ueLteNetDev = DynamicCast<LteUeNetDevice>(ueNetDev);
+    Ptr<LteUePhy> uePhy = ueLteNetDev->GetPhy();
+    double txPowerUe = uePhy->GetTxPower();
+    std::cout << "TxPower UE: " << txPowerUe << std::endl;
+    std::cout << "---------------------------" << std::endl;
+  }
   
-
-  Ptr<NetDevice> ueNetDev = ueLteDevs.Get(0);
-  Ptr<LteUeNetDevice> ueLteNetDev = DynamicCast<LteUeNetDevice>(ueNetDev);
-  Ptr<LteUePhy> uePhy = ueLteNetDev->GetPhy();
-  double txPowerUe = uePhy->GetTxPower();
-  std::cout << "TxPower UE: " << txPowerUe << std::endl;
 
 
   // Install the IP stack on the UEs
@@ -208,53 +212,54 @@ int main(int argc, char *argv[]) {
   // Attach UEs to eNodeBs
   lteHelper->Attach(ueLteDevs);
 
+  // ---------- IMPLEMENT STREAMING FLOW ----------
 
+  // Define the port for video streaming
+  uint16_t videoPort = 9;
 
+  // Install the UdpServer application on the remote host (server)
+  UdpServerHelper videoServer(videoPort);
+  ApplicationContainer serverApps = videoServer.Install(remoteHost);
+  serverApps.Start(Seconds(0.0));
+  serverApps.Stop(Seconds(simTime));
 
-  // Create BulkSendApplication as 1st client application
-  uint16_t port = 9; // First half of UEs
-  BulkSendHelper source("ns3::TcpSocketFactory", InetSocketAddress(remoteHostAddr, port));
-  // Set the amount of data to send in bytes. Zero is unlimited .
-  source.SetAttribute("MaxBytes", UintegerValue(200000)); //200 kB
-  source.SetAttribute("SendSize", UintegerValue(100));
-
-
-  uint16_t port2 = 88;
-  UdpClientHelper client(InetSocketAddress(remoteHostAddr, port2));
-  client.SetAttribute("MaxPackets", UintegerValue(200000));
-
-  ApplicationContainer sourceApps;
-  ApplicationContainer sourceApps2;
-
-  for (size_t i = 0; i < numberOfUes; i++)
-  {
-    if(i % 2 == 0){
-      sourceApps2.Add(client.Install(ueNodes.Get(i)));
-    }
-    else{
-      sourceApps.Add(source.Install(ueNodes.Get(i)));
-    }
-    
+  for (uint32_t i = 0; i < 2; ++i) {
+      UdpClientHelper videoClient(remoteHostAddr, videoPort);
+      videoClient.SetAttribute("MaxPackets", UintegerValue(1000000)); 
+      videoClient.SetAttribute("Interval", TimeValue(MilliSeconds(interval))); 
+      videoClient.SetAttribute("PacketSize", UintegerValue(1500)); 
+      ApplicationContainer clientApps = videoClient.Install(ueNodes.Get(i));
+      
+      clientApps.Start(Seconds(1.0));
+      clientApps.Stop(Seconds(simTime));
   }
+  // ---------- END IMPLEMENT STREAMING FLOW ----------
 
 
-  sourceApps.Start(Seconds(0.5));
-  sourceApps2.Start(Seconds(0.5));
-  
+  // ---------- IMPLEMENT FTP FLOW ----------
+  // Choose two random UE nodes for FTP file exchange
+  uint32_t ueIdServer = 4; // Choose the UE that will act as the FTP server
+  uint32_t ueIdClient = 7; // Choose the UE that will act as the FTP client
 
-  // Create a PacketSinkApplication and install it on Remote host
-  PacketSinkHelper sink("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
-  ApplicationContainer sinkApps = sink.Install(remoteHost); // sink apps
+  // Define the port for FTP server
+  uint16_t ftpPort = 21;
 
-  PacketSinkHelper server_sink("ns3::UdpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), port2));
-  ApplicationContainer serverSink = server_sink.Install(remoteHost);
+  // Install the BulkSend application on the UE acting as the FTP server
+  BulkSendHelper ftpServerHelper("ns3::TcpSocketFactory", InetSocketAddress(ueIpIface.GetAddress(ueIdServer), ftpPort));
+  ftpServerHelper.SetAttribute("MaxBytes", UintegerValue(100000000)); 
+  ApplicationContainer ftpServerApps = ftpServerHelper.Install(ueNodes.Get(ueIdServer));
 
-  sinkApps.Start(Seconds(0.5));
-  serverSink.Start(Seconds(0.5));
-  
+  ftpServerApps.Start(Seconds(2.0));
+  ftpServerApps.Stop(Seconds(simTime));
 
+  // Install the BulkSend application on the UE acting as the FTP client
+  BulkSendHelper ftpClientHelper("ns3::TcpSocketFactory", InetSocketAddress(ueIpIface.GetAddress(ueIdServer), ftpPort));
+  ftpClientHelper.SetAttribute("MaxBytes", UintegerValue(100000000)); 
+  ApplicationContainer ftpClientApps = ftpClientHelper.Install(ueNodes.Get(ueIdClient));
 
-
+  ftpClientApps.Start(Seconds(3.0));
+  ftpClientApps.Stop(Seconds(simTime));
+  // ---------- END IMPLEMENT FTP FLOW ----------
 
   // Uncomment to enable traces
   // lteHelper->EnableTraces();
@@ -289,7 +294,7 @@ int main(int argc, char *argv[]) {
     }
 
   // Uncomment to enable PCAP tracing
-  p2ph.EnablePcapAll("lte-full");
+  p2ph.EnablePcapAll("project-pcap");
 
   Ptr <FlowMonitor> monitor; // = flowMonHelper.InstallAll();
   FlowMonitorHelper flowMonHelper;
