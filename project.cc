@@ -155,17 +155,19 @@ int main(int argc, char *argv[]) {
         it = 0;
       }
     }
-
-  // First set UEs to specific lication with constant position
-  mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-  mobility.SetPositionAllocator(positionAllocUe);
-  mobility.Install(ueNodes);
-
   // Then make UEs move (change mobility to random walk)?
   // TODO: FIX THIS SHIET, DOENST MOVE AT ALL IDK WHY
-  mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel", 
+
+  mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
+                              "Mode",
+                              StringValue("Time"),
+                              "Time",
+                              StringValue(std::to_string(simTime)+"s"),
+                              "Speed",
+                              StringValue("ns3::ConstantRandomVariable[Constant=2.0]"), 
                               "Bounds",
-                              RectangleValue(Rectangle(-50, 50, -50, 50)));
+                              StringValue("150|850|150|850"));
+  
   mobility.Install(ueNodes);
   // ------ END Install Mobility Model -------- 
 
