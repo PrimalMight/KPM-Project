@@ -6,8 +6,8 @@
 #include "ns3/flow-monitor-helper.h"
 #include "ns3/flow-monitor-module.h"
 #include "ns3/gnuplot.h"
-#include "ns3/internet-module.h"
 #include "ns3/internet-apps-module.h"
+#include "ns3/internet-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/lte-helper.h"
 #include "ns3/lte-module.h"
@@ -175,7 +175,7 @@ main(int argc, char* argv[])
             std::cout << "Pos y: " << y << "\n";
         }
     }
-    // Then make UEs move 
+    // Then make UEs move
 
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Mode",
@@ -237,8 +237,10 @@ main(int argc, char* argv[])
     {
         Ptr<Node> ueNode = ueNodes.Get(u);
         // Set the default gateway for the UE
-        Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting(ueNode->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(),1); // default route
+        Ptr<Ipv4StaticRouting> ueStaticRouting =
+            ipv4RoutingHelper.GetStaticRouting(ueNode->GetObject<Ipv4>());
+        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(),
+                                         1); // default route
     }
 
     // Attach UEs to eNodeBs
@@ -246,29 +248,34 @@ main(int argc, char* argv[])
 
     // ---------- IMPLEMENT STREAMING FLOW ----------
     // Define the port for video streaming
-  /* uint16_t videoPort = 9;
+    uint16_t videoPort = 9;
 
     // Install the UdpServer application on the remote host (server)
-    UdpServerHelper videoServer(videoPort);
+
+    UdpClientHelper videoServer(remoteHostAddr, videoPort);
+    videoServer.SetAttribute("MaxPackets", UintegerValue(1000000));
+    videoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
+    videoServer.SetAttribute("PacketSize", UintegerValue(1500));
     ApplicationContainer serverApps = videoServer.Install(remoteHost);
-    serverApps.Start(Seconds(0.0));
+
+    serverApps.Start(Seconds(1.0));
     serverApps.Stop(Seconds(simTime));
 
-    for (uint32_t i = 0; i < 2; ++i)
-    {
-        UdpClientHelper videoClient(remoteHostAddr, videoPort);
-        videoClient.SetAttribute("MaxPackets", UintegerValue(1000000));
-        videoClient.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
-        videoClient.SetAttribute("PacketSize", UintegerValue(1500));
-        ApplicationContainer clientApps = videoClient.Install(ueNodes.Get(i));
+    PacketSinkHelper udpSinkHelper("ns3::UdpSocketFactory",
+                                   InetSocketAddress(Ipv4Address::GetAny(), videoPort));
+    ApplicationContainer udpSink;
 
-        clientApps.Start(Seconds(1.0));
-        clientApps.Stop(Seconds(simTime));
-    }*/
+    for (uint32_t i = 0; i <= 2; ++i)
+    {
+        udpSink.Add(udpSinkHelper.Install(ueNodes.Get(i)));
+    }
+
+    udpSink.Start(Seconds(2.0));
+    udpSink.Stop(Seconds(simTime));
     // ---------- END IMPLEMENT STREAMING FLOW ----------
 
     // ---------- IMPLEMENT FTP FLOW ----------
-    uint16_t firstUeID = 4; // Choose the UE that will act as the FTP server
+    uint16_t firstUeID = 4;  // Choose the UE that will act as the FTP server
     uint16_t secondUeID = 8; // Choose the UE that will act as the FTP client
 
     // Define the port for FTP server
@@ -283,7 +290,8 @@ main(int argc, char* argv[])
     Ipv4Address firstUe = ueIpIface.GetAddress(firstUeID);
     Ipv4Address secondUe = ueIpIface.GetAddress(secondUeID);
 
-    BulkSendHelper ftpFirstServerHelper("ns3::TcpSocketFactory", InetSocketAddress(secondUe , ftpPort));
+    BulkSendHelper ftpFirstServerHelper("ns3::TcpSocketFactory",
+                                        InetSocketAddress(secondUe, ftpPort));
     ftpFirstServerHelper.SetAttribute("MaxBytes", UintegerValue(dataSize));
     ftpFirstServerHelper.SetAttribute("SendSize", UintegerValue(packetSize));
     ApplicationContainer ftpFirstServer = ftpFirstServerHelper.Install(ueNodes.Get(firstUeID));
@@ -291,11 +299,11 @@ main(int argc, char* argv[])
     ftpFirstServer.Stop(Seconds(simTime));
 
     //  Install PacketSink on the UE acting as the FTP client
-    PacketSinkHelper ftpSecondClientHelper("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), ftpPort));
+    PacketSinkHelper ftpSecondClientHelper("ns3::TcpSocketFactory",
+                                           InetSocketAddress(Ipv4Address::GetAny(), ftpPort));
     ApplicationContainer ftpSecondClient = ftpSecondClientHelper.Install(ueNodes.Get(secondUeID));
     ftpSecondClient.Start(Seconds(2.0));
     ftpSecondClient.Stop(Seconds(simTime));
-
 
     // ---------- END IMPLEMENT FTP FLOW ----------
 
