@@ -7,6 +7,7 @@
 #include "ns3/flow-monitor-module.h"
 #include "ns3/gnuplot.h"
 #include "ns3/internet-module.h"
+#include "ns3/internet-apps-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/lte-helper.h"
 #include "ns3/lte-module.h"
@@ -59,6 +60,8 @@ main(int argc, char* argv[])
 
     lteHelper->SetEnbDeviceAttribute("DlBandwidth", UintegerValue(75));
     lteHelper->SetEnbDeviceAttribute("UlBandwidth", UintegerValue(75));
+
+    LogComponentEnable("Ping", LOG_LEVEL_ALL);
 
     Ptr<Node> pgw =
         epcHelper->GetPgwNode(); // get the PGW node (potreba k mobility pozdeji a pro p2ph)
@@ -172,8 +175,7 @@ main(int argc, char* argv[])
             std::cout << "Pos y: " << y << "\n";
         }
     }
-    // Then make UEs move (change mobility to random walk)?
-    // TODO: FIX THIS SHIET, DOENST MOVE AT ALL IDK WHY
+    // Then make UEs move 
 
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Mode",
@@ -235,8 +237,7 @@ main(int argc, char* argv[])
     {
         Ptr<Node> ueNode = ueNodes.Get(u);
         // Set the default gateway for the UE
-        Ptr<Ipv4StaticRouting> ueStaticRouting =
-            ipv4RoutingHelper.GetStaticRouting(ueNode->GetObject<Ipv4>());
+        Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting(ueNode->GetObject<Ipv4>());
         ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(),1); // default route
     }
 
@@ -273,44 +274,24 @@ main(int argc, char* argv[])
     // Define the port for FTP server
     uint16_t ftpPort = 21;
 
-    uint16_t firstUePort = std::rand() % 16382 + 49152;
-    uint16_t secondUePort = std::rand() % 16382 + 49152;
-
-    std::cout << "First UE Port: " << firstUePort << std::endl;
-    std::cout << "Second UE Port: " << secondUePort << std::endl;
+    // Define TCP packet size
+    uint16_t packetSize = 200;
+    // Define the amount of data to be sent
+    uint32_t dataSize = 10000000;
 
     // Install the BulkSend application on the UE acting as the FTP server
-    /*BulkSendHelper ftpServerHelper("ns3::TcpSocketFactory",
-                                   InetSocketAddress(ueIpIface.GetAddress(ueIdServer), ftpPort));
-    ftpServerHelper.SetAttribute("MaxBytes", UintegerValue(1000000000));
-    ftpServerHelper.SetAttribute("SendSize", UintegerValue(1000));
-    ApplicationContainer ftpServerApps = ftpServerHelper.Install(ueNodes.Get(ueIdServer));
+    Ipv4Address firstUe = ueIpIface.GetAddress(firstUeID);
+    Ipv4Address secondUe = ueIpIface.GetAddress(secondUeID);
 
-    ftpServerApps.Start(Seconds(2.0));
-    ftpServerApps.Stop(Seconds(simTime));
-
-    // Install the BulkSend application on the UE acting as the FTP client
-    BulkSendHelper ftpClientHelper("ns3::TcpSocketFactory",
-                                   InetSocketAddress(ueIpIface.GetAddress(ueIdServer), ftpPort));
-    ftpClientHelper.SetAttribute("MaxBytes", UintegerValue(1000000000));
-    ApplicationContainer ftpClientApps = ftpClientHelper.Install(ueNodes.Get(ueIdClient));
-
-    ftpClientApps.Start(Seconds(3.0));
-    ftpClientApps.Stop(Seconds(simTime));*/
-
-    std::cout << "First UE address: " << ueIpIface.GetAddress(firstUeID) << std::endl;
-    std::cout << "Second UE address: " << ueIpIface.GetAddress(secondUeID) << std::endl;
-
-    BulkSendHelper ftpFirstServerHelper("ns3::TcpSocketFactory", InetSocketAddress(ueIpIface.GetAddress(firstUeID), ftpPort));
-    ftpFirstServerHelper.SetAttribute("MaxBytes", UintegerValue(10000));
-    ftpFirstServerHelper.SetAttribute("SendSize", UintegerValue(100));
+    BulkSendHelper ftpFirstServerHelper("ns3::TcpSocketFactory", InetSocketAddress(secondUe , ftpPort));
+    ftpFirstServerHelper.SetAttribute("MaxBytes", UintegerValue(dataSize));
+    ftpFirstServerHelper.SetAttribute("SendSize", UintegerValue(packetSize));
     ApplicationContainer ftpFirstServer = ftpFirstServerHelper.Install(ueNodes.Get(firstUeID));
     ftpFirstServer.Start(Seconds(2.0));
     ftpFirstServer.Stop(Seconds(simTime));
 
-    std::cout << std::endl << "UE Application" << ueNodes.Get(firstUeID)->GetApplication(0) << std::endl;
-
-    PacketSinkHelper ftpSecondClientHelper("ns3::TcpSocketFactory", InetSocketAddress(ueIpIface.GetAddress(secondUeID), secondUePort));
+    //  Install PacketSink on the UE acting as the FTP client
+    PacketSinkHelper ftpSecondClientHelper("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), ftpPort));
     ApplicationContainer ftpSecondClient = ftpSecondClientHelper.Install(ueNodes.Get(secondUeID));
     ftpSecondClient.Start(Seconds(2.0));
     ftpSecondClient.Stop(Seconds(simTime));
