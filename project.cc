@@ -248,11 +248,13 @@ main(int argc, char* argv[])
 
     // ---------- IMPLEMENT STREAMING FLOW ----------
     // Define the port for video streaming
-    uint16_t videoPort = 9;
+    uint16_t videoPort1 = 100;
+    uint32_t maxPackets = 1000000;
+    uint16_t packetSize = 1500;
 
     // Install the UdpServer application on the remote host (server)
 
-    UdpClientHelper videoServer(remoteHostAddr, videoPort);
+    /*UdpClientHelper videoServer(remoteHostAddr, videoPort);
     videoServer.SetAttribute("MaxPackets", UintegerValue(1000000));
     videoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
     videoServer.SetAttribute("PacketSize", UintegerValue(1500));
@@ -260,18 +262,44 @@ main(int argc, char* argv[])
 
     serverApps.Start(Seconds(1.0));
     serverApps.Stop(Seconds(simTime));
-
+    */
+    // Create and install UDP Clients to UEs
     PacketSinkHelper udpSinkHelper("ns3::UdpSocketFactory",
-                                   InetSocketAddress(Ipv4Address::GetAny(), videoPort));
+                                   InetSocketAddress(Ipv4Address::GetAny(), videoPort1));
     ApplicationContainer udpSink;
 
-    for (uint32_t i = 0; i <= 2; ++i)
+    for (int i = 0; i < 3; i++)
     {
         udpSink.Add(udpSinkHelper.Install(ueNodes.Get(i)));
     }
 
     udpSink.Start(Seconds(2.0));
     udpSink.Stop(Seconds(simTime));
+    // Create and install separate UDP servers for each client
+    UdpClientHelper firstVideoServer(ueIpIface.GetAddress(0), videoPort1);
+    firstVideoServer.SetAttribute("MaxPackets", UintegerValue(maxPackets));
+    firstVideoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
+    firstVideoServer.SetAttribute("PacketSize", UintegerValue(packetSize));
+    ApplicationContainer firstVideo = firstVideoServer.Install(remoteHost);
+    firstVideo.Start(Seconds(2.0));
+    firstVideo.Stop(Seconds(simTime));
+
+    UdpClientHelper secondVideoServer(ueIpIface.GetAddress(1), videoPort1);
+    secondVideoServer.SetAttribute("MaxPackets", UintegerValue(maxPackets));
+    secondVideoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
+    secondVideoServer.SetAttribute("PacketSize", UintegerValue(packetSize));
+    ApplicationContainer secondVideo = secondVideoServer.Install(remoteHost);
+    secondVideo.Start(Seconds(2.0));
+    secondVideo.Stop(Seconds(simTime));
+
+    UdpClientHelper thirdVideoServer(ueIpIface.GetAddress(2), videoPort1);
+    thirdVideoServer.SetAttribute("MaxPackets", UintegerValue(maxPackets));
+    thirdVideoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
+    thirdVideoServer.SetAttribute("PacketSize", UintegerValue(packetSize));
+    ApplicationContainer thirdVideo = thirdVideoServer.Install(remoteHost);
+    thirdVideo.Start(Seconds(2.0));
+    thirdVideo.Stop(Seconds(simTime));
+
     // ---------- END IMPLEMENT STREAMING FLOW ----------
 
     // ---------- IMPLEMENT FTP FLOW ----------
@@ -282,7 +310,7 @@ main(int argc, char* argv[])
     uint16_t ftpPort = 21;
 
     // Define TCP packet size
-    uint16_t packetSize = 200;
+    uint16_t TcpPacketSize = 200;
     // Define the amount of data to be sent
     uint32_t dataSize = 10000000;
 
@@ -293,7 +321,7 @@ main(int argc, char* argv[])
     BulkSendHelper ftpFirstServerHelper("ns3::TcpSocketFactory",
                                         InetSocketAddress(secondUe, ftpPort));
     ftpFirstServerHelper.SetAttribute("MaxBytes", UintegerValue(dataSize));
-    ftpFirstServerHelper.SetAttribute("SendSize", UintegerValue(packetSize));
+    ftpFirstServerHelper.SetAttribute("SendSize", UintegerValue(TcpPacketSize));
     ApplicationContainer ftpFirstServer = ftpFirstServerHelper.Install(ueNodes.Get(firstUeID));
     ftpFirstServer.Start(Seconds(2.0));
     ftpFirstServer.Stop(Seconds(simTime));
