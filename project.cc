@@ -29,9 +29,16 @@ main(int argc, char* argv[])
 {
     uint16_t numberOfUes = 15;
     uint16_t numberOf_eNodeBs = 3;
-    double simTime = 10.0;
+    uint16_t dlBandwidth = 75;
+    uint16_t upBandwidth = 75;
+    uint16_t videoPacketSize = 1500;
+    uint16_t ftpPacketSize = 200;
+    uint32_t ftpDataSize = 10000000;
+    uint32_t videoDataSize = 1000000;
+    double simTime = 40.0;
     double interval = 20.0; // ms
     double distance = 300.0;
+    double txPower = 10;
     bool useCa = true;
 
     // TODO: Add way more variables used in simulation for cmd args
@@ -40,6 +47,13 @@ main(int argc, char* argv[])
     cmd.AddValue("distance", "Distance between eNBs [m]", distance);
     cmd.AddValue("useCa", "Whether to use carrier aggregation.", useCa);
     cmd.AddValue("interval", "Inter-packet interval for UDP client [ms]", interval);
+    cmd.AddValue("dlBandwidth", "Downlink bandwidth of eNBs", dlBandwidth);
+    cmd.AddValue("upBandwidth", "Uplink bandwidth of eNBs", upBandwidth);
+    cmd.AddValue("txPower", "Transmission power of UEs", txPower);
+    cmd.AddValue("ftpPacketSize", "Size of FTP packets to sent", ftpPacketSize);
+    cmd.AddValue("ftpDataSize", "The amount of data to be sent through FTP", ftpDataSize);
+    cmd.AddValue("videoPacketSize", "Size of video packets to be sent by the remote server", videoPacketSize);
+    cmd.AddValue("videoDataSize", "The amount of video data to be sent", videoDataSize);
     cmd.Parse(argc, argv);
 
     if (useCa)
@@ -58,8 +72,8 @@ main(int argc, char* argv[])
         CreateObject<PointToPointEpcHelper>(); // PointToPointEpcHelper
     lteHelper->SetEpcHelper(epcHelper);        // enable the use of EPC by LTE helper
 
-    lteHelper->SetEnbDeviceAttribute("DlBandwidth", UintegerValue(75));
-    lteHelper->SetEnbDeviceAttribute("UlBandwidth", UintegerValue(75));
+    lteHelper->SetEnbDeviceAttribute("DlBandwidth", UintegerValue(dlBandwidth));
+    lteHelper->SetEnbDeviceAttribute("UlBandwidth", UintegerValue(upBandwidth));
 
     LogComponentEnable("Ping", LOG_LEVEL_ALL);
 
@@ -228,6 +242,14 @@ main(int argc, char* argv[])
         std::cout << "---------------------------" << std::endl;
     }
 
+    for (uint8_t i = 0; i < ueLteDevs.GetN(); i++)
+    {
+        Ptr<NetDevice> ueNetDev = ueLteDevs.Get(i);
+        Ptr<LteUeNetDevice> ueLteNetDev = DynamicCast<LteUeNetDevice>(ueNetDev);
+        Ptr<LteUePhy> uePhy = ueLteNetDev->GetPhy();
+        uePhy->SetTxPower(txPower);
+    }
+
     // Install the IP stack on the UEs
     internet.Install(ueNodes);
     // Assign IP address to UEs
@@ -249,26 +271,13 @@ main(int argc, char* argv[])
     // ---------- IMPLEMENT STREAMING FLOW ----------
     // Define the port for video streaming
     uint16_t videoPort1 = 100;
-    uint32_t maxPackets = 1000000;
-    uint16_t packetSize = 1500;
 
-    // Install the UdpServer application on the remote host (server)
-
-    /*UdpClientHelper videoServer(remoteHostAddr, videoPort);
-    videoServer.SetAttribute("MaxPackets", UintegerValue(1000000));
-    videoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
-    videoServer.SetAttribute("PacketSize", UintegerValue(1500));
-    ApplicationContainer serverApps = videoServer.Install(remoteHost);
-
-    serverApps.Start(Seconds(1.0));
-    serverApps.Stop(Seconds(simTime));
-    */
     // Create and install UDP Clients to UEs
     PacketSinkHelper udpSinkHelper("ns3::UdpSocketFactory",
                                    InetSocketAddress(Ipv4Address::GetAny(), videoPort1));
     ApplicationContainer udpSink;
 
-    for (int i = 0; i < 3; i++)
+    for (uint8_t i = 0; i < 3; i++)
     {
         udpSink.Add(udpSinkHelper.Install(ueNodes.Get(i)));
     }
@@ -277,25 +286,25 @@ main(int argc, char* argv[])
     udpSink.Stop(Seconds(simTime));
     // Create and install separate UDP servers for each client
     UdpClientHelper firstVideoServer(ueIpIface.GetAddress(0), videoPort1);
-    firstVideoServer.SetAttribute("MaxPackets", UintegerValue(maxPackets));
+    firstVideoServer.SetAttribute("MaxPackets", UintegerValue(videoDataSize));
     firstVideoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
-    firstVideoServer.SetAttribute("PacketSize", UintegerValue(packetSize));
+    firstVideoServer.SetAttribute("PacketSize", UintegerValue(videoPacketSize));
     ApplicationContainer firstVideo = firstVideoServer.Install(remoteHost);
     firstVideo.Start(Seconds(2.0));
     firstVideo.Stop(Seconds(simTime));
 
     UdpClientHelper secondVideoServer(ueIpIface.GetAddress(1), videoPort1);
-    secondVideoServer.SetAttribute("MaxPackets", UintegerValue(maxPackets));
+    secondVideoServer.SetAttribute("MaxPackets", UintegerValue(videoDataSize));
     secondVideoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
-    secondVideoServer.SetAttribute("PacketSize", UintegerValue(packetSize));
+    secondVideoServer.SetAttribute("PacketSize", UintegerValue(videoPacketSize));
     ApplicationContainer secondVideo = secondVideoServer.Install(remoteHost);
     secondVideo.Start(Seconds(2.0));
     secondVideo.Stop(Seconds(simTime));
 
     UdpClientHelper thirdVideoServer(ueIpIface.GetAddress(2), videoPort1);
-    thirdVideoServer.SetAttribute("MaxPackets", UintegerValue(maxPackets));
+    thirdVideoServer.SetAttribute("MaxPackets", UintegerValue(videoDataSize));
     thirdVideoServer.SetAttribute("Interval", TimeValue(MilliSeconds(interval)));
-    thirdVideoServer.SetAttribute("PacketSize", UintegerValue(packetSize));
+    thirdVideoServer.SetAttribute("PacketSize", UintegerValue(videoPacketSize));
     ApplicationContainer thirdVideo = thirdVideoServer.Install(remoteHost);
     thirdVideo.Start(Seconds(2.0));
     thirdVideo.Stop(Seconds(simTime));
@@ -309,19 +318,13 @@ main(int argc, char* argv[])
     // Define the port for FTP server
     uint16_t ftpPort = 21;
 
-    // Define TCP packet size
-    uint16_t TcpPacketSize = 200;
-    // Define the amount of data to be sent
-    uint32_t dataSize = 10000000;
-
     // Install the BulkSend application on the UE acting as the FTP server
-    Ipv4Address firstUe = ueIpIface.GetAddress(firstUeID);
     Ipv4Address secondUe = ueIpIface.GetAddress(secondUeID);
 
     BulkSendHelper ftpFirstServerHelper("ns3::TcpSocketFactory",
                                         InetSocketAddress(secondUe, ftpPort));
-    ftpFirstServerHelper.SetAttribute("MaxBytes", UintegerValue(dataSize));
-    ftpFirstServerHelper.SetAttribute("SendSize", UintegerValue(TcpPacketSize));
+    ftpFirstServerHelper.SetAttribute("MaxBytes", UintegerValue(ftpDataSize));
+    ftpFirstServerHelper.SetAttribute("SendSize", UintegerValue(ftpPacketSize));
     ApplicationContainer ftpFirstServer = ftpFirstServerHelper.Install(ueNodes.Get(firstUeID));
     ftpFirstServer.Start(Seconds(2.0));
     ftpFirstServer.Stop(Seconds(simTime));
