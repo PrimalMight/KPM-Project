@@ -35,10 +35,11 @@ main(int argc, char* argv[])
     uint16_t ftpPacketSize = 200;
     uint32_t ftpDataSize = 10000000;
     uint32_t videoDataSize = 1000000;
-    double simTime = 40.0;
+    double simTime = 60.0;
     double interval = 20.0; // ms
     double distance = 300.0;
     double txPower = 10;
+    double walkSpeed = 2.0;
     bool useCa = true;
 
     // TODO: Add way more variables used in simulation for cmd args
@@ -54,6 +55,7 @@ main(int argc, char* argv[])
     cmd.AddValue("ftpDataSize", "The amount of data to be sent through FTP", ftpDataSize);
     cmd.AddValue("videoPacketSize", "Size of video packets to be sent by the remote server", videoPacketSize);
     cmd.AddValue("videoDataSize", "The amount of video data to be sent", videoDataSize);
+    cmd.AddValue("walkSpeed", "The speed of pedestrians default=2.0", walkSpeed);
     cmd.Parse(argc, argv);
 
     if (useCa)
@@ -80,6 +82,7 @@ main(int argc, char* argv[])
     Ptr<Node> pgw =
         epcHelper->GetPgwNode(); // get the PGW node (potreba k mobility pozdeji a pro p2ph)
     Ptr<Node> sgw = epcHelper->GetSgwNode();
+    
     // Get the MME node by iterating over all nodes in the simulation TOTO ME STALO 2 HODINY ZIVOTA
     Ptr<Node> mme = 0; // Initialize to nullptr
     for (NodeList::Iterator it = NodeList::Begin(); it != NodeList::End(); ++it)
@@ -197,7 +200,7 @@ main(int argc, char* argv[])
                               "Time",
                               StringValue(std::to_string(simTime) + "s"),
                               "Speed",
-                              StringValue("ns3::ConstantRandomVariable[Constant=2.0]"),
+                              StringValue("ns3::ConstantRandomVariable[Constant="+std::to_string(walkSpeed)+"]"),
                               "Bounds",
                               StringValue("150|850|150|850"));
 
@@ -220,6 +223,14 @@ main(int argc, char* argv[])
         lteHelper->InstallUeDevice(ueNodes); // add UE nodes to the container
 
     // SHOW STATS OF eNodeB's
+    for (uint8_t i = 0; i < ueLteDevs.GetN(); i++)
+    {
+        Ptr<NetDevice> ueNetDev = ueLteDevs.Get(i);
+        Ptr<LteUeNetDevice> ueLteNetDev = DynamicCast<LteUeNetDevice>(ueNetDev);
+        Ptr<LteUePhy> uePhy = ueLteNetDev->GetPhy();
+        uePhy->SetTxPower(txPower);
+    }
+    
     for (uint16_t i = 0; i < numberOf_eNodeBs; i++)
     {
         Ptr<NetDevice> enbNetDev = enbLteDevs.Get(i);
@@ -242,13 +253,7 @@ main(int argc, char* argv[])
         std::cout << "---------------------------" << std::endl;
     }
 
-    for (uint8_t i = 0; i < ueLteDevs.GetN(); i++)
-    {
-        Ptr<NetDevice> ueNetDev = ueLteDevs.Get(i);
-        Ptr<LteUeNetDevice> ueLteNetDev = DynamicCast<LteUeNetDevice>(ueNetDev);
-        Ptr<LteUePhy> uePhy = ueLteNetDev->GetPhy();
-        uePhy->SetTxPower(txPower);
-    }
+    
 
     // Install the IP stack on the UEs
     internet.Install(ueNodes);
