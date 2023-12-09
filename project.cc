@@ -42,7 +42,7 @@ main(int argc, char* argv[])
     double walkSpeed = 2.0;
     bool useCa = true;
 
-    // TODO: Add way more variables used in simulation for cmd args
+    //variables used in simulation for cmd args
     CommandLine cmd;
     cmd.AddValue("simTime", "Total duration of the simulation [s])", simTime);
     cmd.AddValue("distance", "Distance between eNBs [m]", distance);
@@ -80,10 +80,10 @@ main(int argc, char* argv[])
     LogComponentEnable("Ping", LOG_LEVEL_ALL);
 
     Ptr<Node> pgw =
-        epcHelper->GetPgwNode(); // get the PGW node (potreba k mobility pozdeji a pro p2ph)
+        epcHelper->GetPgwNode(); // get the PGW node
     Ptr<Node> sgw = epcHelper->GetSgwNode();
     
-    // Get the MME node by iterating over all nodes in the simulation TOTO ME STALO 2 HODINY ZIVOTA
+    // Get the MME node by iterating over all nodes in the simulation
     Ptr<Node> mme = 0; // Initialize to nullptr
     for (NodeList::Iterator it = NodeList::Begin(); it != NodeList::End(); ++it)
     {
@@ -170,8 +170,6 @@ main(int argc, char* argv[])
             double y = 700 + 20.0 * std::sin(2 * M_PI * i / numberOfUes);
             positionAllocUe->Add(Vector(x, y, 0));
             it += 1;
-            std::cout << "Pos x: " << x << "\n";
-            std::cout << "Pos y: " << y << "\n";
         }
         else if (it == 1)
         {
@@ -179,8 +177,6 @@ main(int argc, char* argv[])
             double y = 700 + 20.0 * std::sin(2 * M_PI * i / numberOfUes);
             positionAllocUe->Add(Vector(x, y, 0));
             it += 1;
-            std::cout << "Pos x: " << x << "\n";
-            std::cout << "Pos y: " << y << "\n";
         }
         else
         {
@@ -188,8 +184,6 @@ main(int argc, char* argv[])
             double y = 700 + 20.0 * std::sin(2 * M_PI * i / numberOfUes);
             positionAllocUe->Add(Vector(x, y, 0));
             it = 0;
-            std::cout << "Pos x: " << x << "\n";
-            std::cout << "Pos y: " << y << "\n";
         }
     }
     // Then make UEs move
@@ -207,12 +201,7 @@ main(int argc, char* argv[])
     mobility.SetPositionAllocator(positionAllocUe);
 
     mobility.Install(ueNodes);
-
-    uint32_t nNodes = ueNodes.GetN();
-    for (uint32_t i = 0; i < nNodes; ++i)
-    {
-        Ptr<Node> p = ueNodes.Get(i);
-        // some Node method
+    
     }
     // ------ END Install Mobility Model --------
 
