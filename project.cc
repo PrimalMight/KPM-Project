@@ -376,35 +376,6 @@ main(int argc, char* argv[])
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
 
-    // GnuPlot
-    std::string jmenoSouboru = "delay";
-    std::string graphicsFileName = jmenoSouboru + ".png";
-    std::string plotFileName = jmenoSouboru + ".plt";
-    std::string plotTitle = "Average delay";
-    std::string dataTitle = "Delay [ms]";
-    Gnuplot gnuplot(graphicsFileName);
-    gnuplot.SetTitle(plotTitle);
-    gnuplot.SetTerminal("png");
-    gnuplot.SetLegend("IDs of data streams", "Delay [ms]");
-    gnuplot.AppendExtra("set xrange [1:" + std::to_string(numberOfUes * 2) + "]");
-    gnuplot.AppendExtra("set yrange [0:500]");
-    gnuplot.AppendExtra("set grid");
-    Gnuplot2dDataset dataset_delay;
-
-    jmenoSouboru = "datarate";
-    graphicsFileName = jmenoSouboru + ".png";
-    std::string plotFileNameDR = jmenoSouboru + ".plt";
-    plotTitle = "Data rate for IDs";
-    dataTitle = "Data rate [kbps]";
-    Gnuplot gnuplot_DR(graphicsFileName);
-    gnuplot_DR.SetTitle(plotTitle);
-    gnuplot_DR.SetTerminal("png");
-    gnuplot_DR.SetLegend("IDs of all streams", "Data rate [kbps]");
-    gnuplot_DR.AppendExtra("set xrange [1:" + std::to_string(numberOfUes * 2) + "]");
-    gnuplot_DR.AppendExtra("set yrange [0:2500]");
-    gnuplot_DR.AppendExtra("set grid");
-    Gnuplot2dDataset dataset_rate;
-
     monitor->CheckForLostPackets();
     Ptr<Ipv4FlowClassifier> classifier =
         DynamicCast<Ipv4FlowClassifier>(flowMonHelper.GetClassifier());
@@ -447,8 +418,6 @@ main(int argc, char* argv[])
             (i->second.timeLastRxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) /
             1024;
 
-        dataset_delay.Add((double)i->first, (double)Delay);
-        dataset_rate.Add((double)i->first, (double)DataRate);
         std::cout << "Jitter sum: " << i->second.jitterSum.GetMilliSeconds() << "ms" << std::endl;
         std::cout << "Mean jitter: "
                   << (i->second.jitterSum.GetSeconds() / (i->second.rxPackets - 1)) * 1000 << "ms"
@@ -462,15 +431,6 @@ main(int argc, char* argv[])
         std::cout << "------------------------------------------------" << std::endl;
     }
 
-    // Gnuplot - continuation
-    gnuplot.AddDataset(dataset_delay);
-    std::ofstream plotFile(plotFileName.c_str());
-    gnuplot.GenerateOutput(plotFile);
-    plotFile.close();
-    gnuplot_DR.AddDataset(dataset_rate);
-    std::ofstream plotFileDR(plotFileNameDR.c_str());
-    gnuplot_DR.GenerateOutput(plotFileDR);
-    plotFileDR.close();
 
     Simulator::Destroy();
     return 0;
