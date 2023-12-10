@@ -389,7 +389,6 @@ main(int argc, char* argv[])
          ++i)
     {
         // if (i-> first > 2) {
-        double Delay, DataRate;
         Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(i->first);
         std::cout << "Flow ID: " << i->first << std::endl;
         std::cout << "Src add: " << t.sourceAddress << "-> Dst add: " << t.destinationAddress
@@ -410,13 +409,6 @@ main(int argc, char* argv[])
         std::cout << "Mean delay: "
                   << (i->second.delaySum.GetSeconds() / i->second.rxPackets) * 1000 << "ms"
                   << std::endl;
-
-        // gnuplot Delay
-        Delay = (i->second.delaySum.GetSeconds() / i->second.rxPackets) * 1000;
-        DataRate =
-            i->second.rxBytes * 8.0 /
-            (i->second.timeLastRxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds()) /
-            1024;
 
         std::cout << "Jitter sum: " << i->second.jitterSum.GetMilliSeconds() << "ms" << std::endl;
         std::cout << "Mean jitter: "
